@@ -1,10 +1,10 @@
 import TextInlines from './TextInlines';
 import StyleContextStack from './StyleContextStack';
 import ColumnCalculator from './columnCalculator';
-import { defaultTableLayout } from './tableLayouts';
-import { isString, isNumber, isObject, isArray } from './helpers/variableType';
-import { stringifyNode, getNodeId, getNodeMargin } from './helpers/node';
-import { pack } from './helpers/tools';
+import {defaultTableLayout} from './tableLayouts';
+import {isArray, isNumber, isObject, isString} from './helpers/variableType';
+import {getNodeId, getNodeMargin, stringifyNode} from './helpers/node';
+import {pack} from './helpers/tools';
 import qrEncoder from './qrEnc.js';
 
 class DocMeasure {
@@ -123,7 +123,7 @@ class DocMeasure {
 		this.convertIfBase64Image(node);
 
 		let image = this.pdfDocument.provideImage(node.image);
-		let imageSize = { width: image.width, height: image.height };
+		let imageSize = {width: image.width, height: image.height};
 
 		this.measureImageWithDimensions(node, imageSize);
 
@@ -138,7 +138,7 @@ class DocMeasure {
 		node.font = this.styleStack.getProperty('font');
 
 		// scale SVG based on final dimension
-		node.svg = this.svgMeasure.writeDimensions(node.svg, { width: node._width, height: node._height });
+		node.svg = this.svgMeasure.writeDimensions(node.svg, {width: node._width, height: node._height});
 
 		return node;
 	}
@@ -180,8 +180,21 @@ class DocMeasure {
 				let lineNumberStyle = item._textNodeRef.tocNumberStyle || numberStyle;
 				let destination = getNodeId(item._nodeRef);
 				body.push([
-					{ text: item._textNodeRef.text, linkToDestination: destination, alignment: 'left', style: lineStyle, margin: lineMargin },
-					{ text: '00000', linkToDestination: destination, alignment: 'right', _tocItemRef: item._nodeRef, style: lineNumberStyle, margin: [0, lineMargin[1], 0, lineMargin[3]] }
+					{
+						text: item._textNodeRef.text,
+						linkToDestination: destination,
+						alignment: 'left',
+						style: lineStyle,
+						margin: lineMargin
+					},
+					{
+						text: '00000',
+						linkToDestination: destination,
+						alignment: 'right',
+						_tocItemRef: item._nodeRef,
+						style: lineNumberStyle,
+						margin: [0, lineMargin[1], 0, lineMargin[3]]
+					}
 				]);
 			}
 
@@ -312,7 +325,7 @@ class DocMeasure {
 				return counter.toString();
 			}
 			let num = counter;
-			let lookup = { M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1 };
+			let lookup = {M: 1000, CM: 900, D: 500, CD: 400, C: 100, XC: 90, L: 50, XL: 40, X: 10, IX: 9, V: 5, IV: 4, I: 1};
 			let roman = '';
 			for (let i in lookup) {
 				while (num >= lookup[i]) {
@@ -374,13 +387,13 @@ class DocMeasure {
 			}
 		}
 
-		let textArray = { text: counterText };
+		let textArray = {text: counterText};
 		let markerColor = styleStack.getProperty('markerColor');
 		if (markerColor) {
 			textArray.color = markerColor;
 		}
 
-		return { _inlines: this.textInlines.buildInlines(textArray, styleStack).items };
+		return {_inlines: this.textInlines.buildInlines(textArray, styleStack).items};
 	}
 
 	measureUnorderedList(node) {
@@ -470,6 +483,7 @@ class DocMeasure {
 		return node;
 	}
 
+
 	measureTable(node) {
 		extendTableWidths(node);
 		node._layout = getLayout(this.tableLayouts);
@@ -501,7 +515,7 @@ class DocMeasure {
 
 					if (data.colSpan && data.colSpan > 1) {
 						markSpans(rowData, col, data.colSpan);
-						colSpans.push({ col: col, span: data.colSpan, minWidth: data._minWidth, maxWidth: data._maxWidth });
+						colSpans.push({col: col, span: data.colSpan, minWidth: data._minWidth, maxWidth: data._maxWidth});
 					} else {
 						c._minWidth = Math.max(c._minWidth, data._minWidth);
 						c._maxWidth = Math.max(c._maxWidth, data._maxWidth);
@@ -593,7 +607,7 @@ class DocMeasure {
 		}
 
 		function getMinMax(col, span, offsets) {
-			let result = { minWidth: 0, maxWidth: 0 };
+			let result = {minWidth: 0, maxWidth: 0};
 
 			for (let i = 0; i < span; i++) {
 				result.minWidth += node.table.widths[col + i]._minWidth + (i ? offsets.offsets[col + i] : 0);
@@ -642,8 +656,76 @@ class DocMeasure {
 			for (let i = 0, l = node.table.widths.length; i < l; i++) {
 				let w = node.table.widths[i];
 				if (isNumber(w) || isString(w)) {
-					node.table.widths[i] = { width: w };
+					node.table.widths[i] = {width: w};
 				}
+			}
+		}
+	}
+
+	measureTableRow(rowNode, tableNode) {
+		let row = rowNode;
+
+		for (let col = 0, cols = tableNode.table.body[0].length; col < cols; col++) {
+			let c = tableNode.table.widths[col];
+			c._minWidth = 0;
+			c._maxWidth = 0;
+
+			let data = row[col];
+			if (data === undefined) {
+				throw new Error(`Malformed table row, a cell is undefined.\n\nColumn index: ${col}\nRow data: ${stringifyNode(row)}`);
+			}
+			if (data === null) { // transform to object
+				data = '';
+			}
+
+			if (!data._span) {
+				data = row[col] = this.styleStack.auto(data, measureCb(this, data));
+
+				if (data.colSpan && data.colSpan > 1) {
+					markSpans(row, col, data.colSpan);
+				} else {
+					c._minWidth = Math.max(c._minWidth, data._minWidth);
+					c._maxWidth = Math.max(c._maxWidth, data._maxWidth);
+				}
+			}
+
+			if (data.rowSpan && data.rowSpan > 1) {
+				markVSpans(tableNode.table, row, col, data.rowSpan);
+			}
+		}
+
+		return rowNode;
+
+		function measureCb(_this, data) {
+			return () => {
+				if (isObject(data)) {
+					data.fillColor = _this.styleStack.getProperty('fillColor');
+					data.fillOpacity = _this.styleStack.getProperty('fillOpacity');
+				}
+				return _this.measureNode(data);
+			};
+		}
+
+		function markSpans(rowData, col, span) {
+			for (let i = 1; i < span; i++) {
+				rowData[col + i] = {
+					_span: true,
+					_minWidth: 0,
+					_maxWidth: 0,
+					rowSpan: rowData[col].rowSpan
+				};
+			}
+		}
+
+		function markVSpans(table, row, col, span) {
+			for (let i = 1; i < span; i++) {
+				table.body[row + i][col] = {
+					_span: true,
+					_minWidth: 0,
+					_maxWidth: 0,
+					fillColor: table.body[row][col].fillColor,
+					fillOpacity: table.body[row][col].fillOpacity
+				};
 			}
 		}
 	}

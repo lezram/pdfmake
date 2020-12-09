@@ -1,5 +1,11 @@
 import ColumnCalculator from './columnCalculator';
-import { isFunction, isNumber } from './helpers/variableType';
+import {isArray, isFunction, isNumber} from './helpers/variableType';
+
+function addAll(target, otherArray) {
+	otherArray.forEach(item => {
+		target.push(item);
+	});
+}
 
 class TableProcessor {
 	constructor(tableNode) {
@@ -22,7 +28,7 @@ class TableProcessor {
 			let x = 0;
 			let lastWidth = 0;
 
-			rsd.push({ left: 0, rowSpan: 0 });
+			rsd.push({left: 0, rowSpan: 0});
 
 			for (let i = 0, l = this.tableNode.table.body[0].length; i < l; i++) {
 				let paddings = this.layout.paddingLeft(i, this.tableNode) + this.layout.paddingRight(i, this.tableNode);
@@ -30,7 +36,7 @@ class TableProcessor {
 				lastWidth = paddings + lBorder + this.tableNode.table.widths[i]._calcWidth;
 				rsd[rsd.length - 1].width = lastWidth;
 				x += lastWidth;
-				rsd.push({ left: x, rowSpan: 0, width: 0 });
+				rsd.push({left: x, rowSpan: 0, width: 0});
 			}
 
 			return rsd;
@@ -105,6 +111,13 @@ class TableProcessor {
 		this.rowsWithoutPageBreak = this.headerRows + (tableNode.table.keepWithHeaderRows || 0);
 		this.dontBreakRows = tableNode.table.dontBreakRows || false;
 
+
+		this.onPageBreak = function () {
+		};
+		if (tableNode.table && tableNode.table.onPageBreak && isFunction(tableNode.table.onPageBreak)) {
+			this.onPageBreak = tableNode.table.onPageBreak;
+		}
+
 		if (this.rowsWithoutPageBreak) {
 			writer.beginUnbreakableBlock();
 		}
@@ -122,6 +135,8 @@ class TableProcessor {
 			writer.context().moveDown(offset);
 		};
 	}
+
+
 
 	beginRow(rowIndex, writer) {
 		this.topLineWidth = this.layout.hLineWidth(rowIndex, this.tableNode);
@@ -202,7 +217,7 @@ class TableProcessor {
 				}
 
 				if (!currentLine && shouldDrawLine) {
-					currentLine = { left: data.left, width: 0 };
+					currentLine = {left: data.left, width: 0};
 				}
 
 				if (shouldDrawLine) {
@@ -340,7 +355,7 @@ class TableProcessor {
 
 			for (let i = 0, l = this.tableNode.table.body[rowIndex].length; i < l; i++) {
 				if (!cols) {
-					result.push({ x: this.rowSpanData[i].left, index: i });
+					result.push({x: this.rowSpanData[i].left, index: i});
 
 					let item = this.tableNode.table.body[rowIndex][i];
 					cols = (item._colSpan || item.colSpan || 0);
@@ -350,7 +365,7 @@ class TableProcessor {
 				}
 			}
 
-			result.push({ x: this.rowSpanData[this.rowSpanData.length - 1].left, index: this.rowSpanData.length - 1 });
+			result.push({x: this.rowSpanData[this.rowSpanData.length - 1].left, index: this.rowSpanData.length - 1});
 
 			return result;
 		};
@@ -379,7 +394,7 @@ class TableProcessor {
 				let pageBreak = pageBreaks[i];
 				ys[ys.length - 1].y1 = pageBreak.prevY;
 
-				ys.push({ y0: pageBreak.y, page: pageBreak.prevPage + 1 });
+				ys.push({y0: pageBreak.y, page: pageBreak.prevPage + 1});
 			}
 		}
 

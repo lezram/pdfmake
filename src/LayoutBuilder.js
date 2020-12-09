@@ -5,9 +5,9 @@ import PageElementWriter from './PageElementWriter';
 import ColumnCalculator from './columnCalculator';
 import TableProcessor from './TableProcessor';
 import Line from './Line';
-import { isString, isArray, isFunction, isValue, isNumber } from './helpers/variableType';
-import { stringifyNode, getNodeId } from './helpers/node';
-import { pack, offsetVector } from './helpers/tools';
+import {isArray, isFunction, isNumber, isString, isValue} from './helpers/variableType';
+import {getNodeId, stringifyNode} from './helpers/node';
+import {offsetVector, pack} from './helpers/tools';
 import TextInlines from './TextInlines';
 import StyleContextStack from './StyleContextStack';
 
@@ -185,7 +185,7 @@ class LayoutBuilder {
 			this.addWatermark(watermark, pdfDocument, defaultStyle);
 		}
 
-		return { pages: this.writer.context().pages, linearNodeList: this.linearNodeList };
+		return {pages: this.writer.context().pages, linearNodeList: this.linearNodeList};
 	}
 
 	addBackground(background) {
@@ -258,7 +258,7 @@ class LayoutBuilder {
 
 	addWatermark(watermark, pdfDocument, defaultStyle) {
 		if (isString(watermark)) {
-			watermark = { 'text': watermark };
+			watermark = {'text': watermark};
 		}
 
 		if (!watermark.text) { // empty watermark text
@@ -299,7 +299,11 @@ class LayoutBuilder {
 
 		function getWatermarkSize(watermark, pdfDocument) {
 			let textInlines = new TextInlines(pdfDocument);
-			let styleContextStack = new StyleContextStack(null, { font: watermark.font, bold: watermark.bold, italics: watermark.italics });
+			let styleContextStack = new StyleContextStack(null, {
+				font: watermark.font,
+				bold: watermark.bold,
+				italics: watermark.italics
+			});
 
 			styleContextStack.push({
 				fontSize: watermark.fontSize
@@ -308,12 +312,16 @@ class LayoutBuilder {
 			let size = textInlines.sizeOfText(watermark.text, styleContextStack);
 			let rotatedSize = textInlines.sizeOfRotatedText(watermark.text, watermark.angle, styleContextStack);
 
-			return { size: size, rotatedSize: rotatedSize };
+			return {size: size, rotatedSize: rotatedSize};
 		}
 
 		function getWatermarkFontSize(pageSize, watermark, pdfDocument) {
 			let textInlines = new TextInlines(pdfDocument);
-			let styleContextStack = new StyleContextStack(null, { font: watermark.font, bold: watermark.bold, italics: watermark.italics });
+			let styleContextStack = new StyleContextStack(null, {
+				font: watermark.font,
+				bold: watermark.bold,
+				italics: watermark.italics
+			});
 			let rotatedSize;
 
 			/**
@@ -398,6 +406,7 @@ class LayoutBuilder {
 
 		this.linearNodeList.push(node);
 		decorateNode(node);
+
 
 		applyMargins(() => {
 			let unbreakable = node.unbreakable;
@@ -547,7 +556,7 @@ class LayoutBuilder {
 
 		this.writer.removeListener('pageChanged', storePageBreakData);
 
-		return { pageBreaks: pageBreaks, positions: positions };
+		return {pageBreaks: pageBreaks, positions: positions};
 
 		function colLeftOffset(i) {
 			if (gaps && gaps.length > i) {
@@ -619,30 +628,48 @@ class LayoutBuilder {
 
 		processor.beginTable(this.writer);
 
-		let rowHeights = tableNode.table.heights;
-		for (let i = 0, l = tableNode.table.body.length; i < l; i++) {
-			processor.beginRow(i, this.writer);
+		const tableInfo = {
+			rowPosition: 0
+		};
 
-			let height;
-			if (isFunction(rowHeights)) {
-				height = rowHeights(i);
-			} else if (isArray(rowHeights)) {
-				height = rowHeights[i];
-			} else {
-				height = rowHeights;
-			}
+		const pageBreakAction = (prevPage) => {
+			processor.onPageBreak(prevPage, tableInfo, processor, this);
+		};
 
-			if (height === 'auto') {
-				height = undefined;
-			}
+		this.writer.addListener("pageChanged", pageBreakAction);
 
-			let result = this.processRow(tableNode.table.body[i], tableNode.table.widths, tableNode._offsets.offsets, tableNode.table.body, i, height);
-			addAll(tableNode.positions, result.positions);
-
-			processor.endRow(i, this.writer, result.pageBreaks);
+		while (tableInfo.rowPosition < tableNode.table.body.length) {
+			let rowContent = tableNode.table.body[tableInfo.rowPosition];
+			this.insertTableRow(tableInfo.rowPosition, rowContent, processor);
+			tableInfo.rowPosition++;
 		}
 
+		this.writer.removeListener("pageChanged", pageBreakAction);
 		processor.endTable(this.writer);
+	}
+
+	insertTableRow(rowPosition, rowContent, processor) {
+		processor.beginRow(rowPosition, this.writer);
+
+		let rowHeights = processor.tableNode.table.heights;
+
+		let height;
+		if (isFunction(rowHeights)) {
+			height = rowHeights(rowPosition);
+		} else if (isArray(rowHeights)) {
+			height = rowHeights[rowPosition];
+		} else {
+			height = rowHeights;
+		}
+
+		if (height === 'auto') {
+			height = undefined;
+		}
+
+		let result = this.processRow(rowContent, processor.tableNode.table.widths, processor.tableNode._offsets.offsets, processor.tableNode.table.body, rowPosition, height);
+		addAll(processor.tableNode.positions, result.positions);
+
+		processor.endRow(rowPosition, this.writer, result.pageBreaks);
 	}
 
 	// leafs (texts)
@@ -719,7 +746,7 @@ class LayoutBuilder {
 
 		let isForceContinue = false;
 		while (textNode._inlines && textNode._inlines.length > 0 &&
-			(line.hasEnoughSpaceForInline(textNode._inlines[0], textNode._inlines.slice(1)) || isForceContinue)) {
+		(line.hasEnoughSpaceForInline(textNode._inlines[0], textNode._inlines.slice(1)) || isForceContinue)) {
 			let isHardWrap = false;
 			let inline = textNode._inlines.shift();
 			isForceContinue = false;
